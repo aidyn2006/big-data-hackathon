@@ -1,0 +1,64 @@
+:root {
+  --bg: #F8FAFC; /* soft base */
+  --accent: #A78BFA; /* lavender */
+  --accent-2: #38BDF8; /* light blue (optional highlights) */
+  --text: #0F172A; /* neutral depth */
+  --muted: #64748B;
+  --card: rgba(255,255,255,0.7);
+  --shadow: 0 10px 30px rgba(2,8,23,0.08);
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; }
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: linear-gradient(135deg, var(--bg), #F3F0FF);
+  color: var(--text);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.glass-card {
+  background: var(--card);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.soft-shadow { box-shadow: var(--shadow); }
+
+.title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.subtitle { color: var(--muted); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chip.success { background: #DCFCE7; color: #166534; }
+.chip.warn { background: #FEF3C7; color: #92400E; }
+.chip.danger { background: #FEE2E2; color: #991B1B; }
+.chip.info { background: #E0F2FE; color: #075985; }
+
+.grid { display: grid; gap: 16px; }
+.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.fade-enter-active, .fade-leave-active { transition: opacity .25s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+
