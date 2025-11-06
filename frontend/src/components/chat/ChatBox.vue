@@ -137,32 +137,32 @@ async function send() {
     const payload = { message: t }
     if (lat.value != null && lng.value != null) { payload.lat = lat.value; payload.lng = lng.value }
     // Always get raw response from webhook
-    const { data } = await axios.post(endpoint, payload, { transformResponse: r => r })
+    const response = await axios.post(endpoint, payload, { transformResponse: r => r })
     
-       // Try to parse as JSON for structured display
-       try {
-         const parsed = JSON.parse(data)
-         if (parsed && typeof parsed === 'object') {
-           // Extract text from various possible fields
-           const responseText = parsed.recommendation_kk || 
-                              parsed.recommendation || 
-                              parsed.message || 
-                              parsed.answer || 
-                              parsed.response ||
-                              'Жалоба обработана'
-           
-           messages.value.push({
-             role: 'assistant',
-             text: responseText,
-             data: parsed
-           })
-         } else {
-           messages.value.push({ role: 'assistant', text: data })
-         }
-       } catch {
-         // Not JSON, show as text
-         messages.value.push({ role: 'assistant', text: data })
-       }
+    console.log('=== CHAT RESPONSE ===')
+    console.log('Data:', response.data)
+    console.log('====================')
+    
+    // Parse JSON and extract recommendation_kk
+    let displayText = response.data || '[Пустой ответ от сервера]'
+    try {
+      const parsed = JSON.parse(response.data)
+      console.log('Parsed:', parsed)
+      if (parsed.recommendation_kk) {
+        displayText = parsed.recommendation_kk
+      } else if (parsed.recommendation) {
+        displayText = parsed.recommendation
+      } else {
+        displayText = JSON.stringify(parsed, null, 2)
+      }
+    } catch (e) {
+      console.log('Not JSON, showing as is')
+    }
+    
+    messages.value.push({ 
+      role: 'assistant', 
+      text: displayText
+    })
     statusMsg.value = ''
   } catch (e) {
     messages.value.push({ role: 'assistant', text: 'Не удалось отправить. Попробуйте позже.' })

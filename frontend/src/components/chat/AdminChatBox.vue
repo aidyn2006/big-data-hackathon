@@ -105,46 +105,37 @@ async function send() {
       payload.complaintId = props.complaint.id
     }
     
-    const { data } = await axios.post('/api/complaints/admin-chat', 
+    const response = await axios.post('/api/complaints/admin-chat', 
       payload, 
       { transformResponse: r => r }
     )
     
-    console.log('Admin chat response:', data)
+    console.log('=== FULL RESPONSE ===')
+    console.log('Data:', response.data)
+    console.log('=====================')
+    
     statusMsg.value = ''
     
-    // Try to parse as JSON for structured display
+    // Parse JSON and extract recommendation_kk
+    let displayText = response.data || '[Пустой ответ от сервера]'
     try {
-      const parsed = JSON.parse(data)
-      console.log('Parsed response:', parsed)
-      
-      if (parsed && typeof parsed === 'object') {
-        // Extract text from various possible fields
-        const responseText = parsed.recommendation_kk || 
-                           parsed.recommendation || 
-                           parsed.message || 
-                           parsed.answer || 
-                           parsed.response ||
-                           JSON.stringify(parsed, null, 2)
-        
-        console.log('Response text:', responseText)
-        
-        const newMessage = {
-          role: 'assistant',
-          text: responseText,
-          data: parsed
-        }
-        console.log('Adding message:', newMessage)
-        messages.value.push(newMessage)
-        console.log('Total messages:', messages.value.length)
+      const parsed = JSON.parse(response.data)
+      console.log('Parsed:', parsed)
+      if (parsed.recommendation_kk) {
+        displayText = parsed.recommendation_kk
+      } else if (parsed.recommendation) {
+        displayText = parsed.recommendation
       } else {
-        messages.value.push({ role: 'assistant', text: data })
+        displayText = JSON.stringify(parsed, null, 2)
       }
     } catch (e) {
-      // Not JSON, show as text
-      console.error('Failed to parse response:', e)
-      messages.value.push({ role: 'assistant', text: data })
+      console.log('Not JSON, showing as is')
     }
+    
+    messages.value.push({
+      role: 'assistant', 
+      text: displayText
+    })
   } catch (e) {
     statusMsg.value = ''
     console.error('Request failed:', e)

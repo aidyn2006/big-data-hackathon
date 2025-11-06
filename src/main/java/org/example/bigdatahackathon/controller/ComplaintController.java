@@ -236,11 +236,7 @@ public class ComplaintController {
     
     @PostMapping(value = "/chat-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> chatPhoto(@RequestPart(value = "photo", required = false) MultipartFile photoFile,
-                                           @RequestPart(value = "image", required = false) MultipartFile imageFile,
-                                           @RequestPart(value = "text", required = false) String text,
-                                           @RequestPart(value = "lat", required = false) Double lat,
-                                           @RequestPart(value = "lng", required = false) Double lng,
-                                           Principal principal) {
+                                           @RequestPart(value = "image", required = false) MultipartFile imageFile) {
         // Accept both "photo" and "image" parameter names
         MultipartFile photo = photoFile != null ? photoFile : imageFile;
         
@@ -262,26 +258,9 @@ public class ComplaintController {
                     }
                 };
                 
+                // ONLY send the image, nothing else
                 MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
                 body.add("photo", resource);
-                body.add("image", resource); // Send as both for compatibility
-                
-                if (text != null && !text.isBlank()) { body.add("text", text); }
-                if (lat != null) { 
-                    body.add("lat", String.valueOf(lat)); 
-                    body.add("latitude", String.valueOf(lat)); 
-                }
-                if (lng != null) { 
-                    body.add("lng", String.valueOf(lng)); 
-                    body.add("longitude", String.valueOf(lng)); 
-                }
-                if (principal != null) {
-                    try {
-                        Long userId = userService.findByUsername(principal.getName()).getId();
-                        body.add("userId", String.valueOf(userId));
-                        body.add("username", principal.getName());
-                    } catch (Exception ignored) {}
-                }
                 
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -305,9 +284,6 @@ public class ComplaintController {
     @PostMapping(value = "/submit-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> submitPhoto(@RequestPart(value = "photo", required = false) MultipartFile photoFile,
                                              @RequestPart(value = "image", required = false) MultipartFile imageFile,
-                                             @RequestPart(value = "text", required = false) String text,
-                                             @RequestPart(value = "lat", required = false) Double lat,
-                                             @RequestPart(value = "lng", required = false) Double lng,
                                              Principal principal) {
         if (principal == null) return ResponseEntity.status(401).build();
         
@@ -324,8 +300,7 @@ public class ComplaintController {
         // Save complaint to DB
         Long userId = null;
         try { userId = userService.findByUsername(principal.getName()).getId(); } catch (Exception ignored) {}
-        String message = text != null ? text : "Жалоба с фото";
-        Complaint saved = complaintService.submit(message, principal.getName(), lat, lng, userId);
+        Complaint saved = complaintService.submit("Жалоба с фото", principal.getName(), null, null, userId);
         
         try {
             if (photoWebhookUrl != null && !photoWebhookUrl.isBlank()) {
@@ -336,15 +311,9 @@ public class ComplaintController {
                     }
                 };
                 
+                // ONLY send the image, nothing else
                 MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
                 body.add("photo", resource);
-                body.add("image", resource);
-                body.add("complaintId", saved.getId().toString());
-                
-                if (text != null && !text.isBlank()) { body.add("text", text); }
-                if (lat != null) { body.add("lat", String.valueOf(lat)); body.add("latitude", String.valueOf(lat)); }
-                if (lng != null) { body.add("lng", String.valueOf(lng)); body.add("longitude", String.valueOf(lng)); }
-                if (userId != null) { body.add("userId", String.valueOf(userId)); body.add("username", principal.getName()); }
                 
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.MULTIPART_FORM_DATA);
