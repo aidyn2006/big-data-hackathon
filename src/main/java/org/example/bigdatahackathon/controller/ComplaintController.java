@@ -37,6 +37,12 @@ public class ComplaintController {
     public ResponseEntity<Map<String, Object>> bulkImportText(@RequestBody String body) {
         return ResponseEntity.ok(complaintService.bulkImportFromText(body));
     }
+
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> dbHealth() {
+        long count = complaintService.count();
+        return ResponseEntity.ok(Map.of("status", "OK", "complaintsCount", count));
+    }
 }
 
 

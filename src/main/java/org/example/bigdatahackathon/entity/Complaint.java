@@ -1,15 +1,12 @@
 package org.example.bigdatahackathon.entity;
-
-import com.vladmihalcea.hibernate.type.array.ListArrayType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Type;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -47,16 +44,16 @@ public class Complaint {
     @Column(columnDefinition = "TEXT")
     private String actor;
     
-    @Type(ListArrayType.class)
-    @Column(name = "aspect", columnDefinition = "TEXT[]")
-    private List<String> aspect = new ArrayList<>();
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "aspect", columnDefinition = "text[]")
+    private String[] aspect;
     
     @Column(columnDefinition = "TEXT")
     private String priority;
     
-    @Type(ListArrayType.class)
-    @Column(name = "evidence", columnDefinition = "TEXT[]")
-    private List<String> evidence = new ArrayList<>();
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "evidence", columnDefinition = "text[]")
+    private String[] evidence;
     
     @Column(columnDefinition = "DOUBLE PRECISION")
     private Double confidence;
@@ -71,12 +68,8 @@ public class Complaint {
     protected void onCreate() {
         createdAt = OffsetDateTime.now();
         updatedAt = OffsetDateTime.now();
-        if (aspect == null) {
-            aspect = new ArrayList<>();
-        }
-        if (evidence == null) {
-            evidence = new ArrayList<>();
-        }
+        if (aspect == null) aspect = new String[]{};
+        if (evidence == null) evidence = new String[]{};
     }
     
     @PreUpdate

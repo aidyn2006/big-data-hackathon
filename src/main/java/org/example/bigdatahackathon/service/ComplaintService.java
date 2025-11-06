@@ -58,6 +58,10 @@ public class ComplaintService {
         return resp;
     }
 
+    public long count() {
+        return complaintRepository.count();
+    }
+
     public Map<String, Object> bulkImportFromText(String body) {
         List<String> lines = body == null ? List.of() : body.strip().lines().toList();
         int imported = 0;
@@ -89,11 +93,11 @@ public class ComplaintService {
                 // 6 actor
                 c.setActor(nullIfEmpty(stripQuotes(fields.get(6))));
                 // 7 aspect (TEXT[])
-                c.setAspect(parseArray(nullIfEmpty(stripQuotes(fields.get(7)))));
+                c.setAspect(parseArrayToStrArray(nullIfEmpty(stripQuotes(fields.get(7)))));
                 // 8 priority
                 c.setPriority(nullIfEmpty(stripQuotes(fields.get(8))));
                 // 9 evidence (TEXT[])
-                c.setEvidence(parseArray(nullIfEmpty(stripQuotes(fields.get(9)))));
+                c.setEvidence(parseArrayToStrArray(nullIfEmpty(stripQuotes(fields.get(9)))));
                 // 10 confidence
                 c.setConfidence(parseDouble(nullIfEmpty(stripQuotes(fields.get(10)))));
                 // 11 created_at
@@ -145,12 +149,12 @@ public class ComplaintService {
         }
     }
 
-    private static List<String> parseArray(String literal) {
-        if (literal == null) return new ArrayList<>();
+    private static String[] parseArrayToStrArray(String literal) {
+        if (literal == null) return new String[]{};
         String t = literal.strip();
         if (t.startsWith("{") && t.endsWith("}")) {
             String inner = t.substring(1, t.length() - 1);
-            if (inner.isBlank()) return new ArrayList<>();
+            if (inner.isBlank()) return new String[]{};
             String[] parts = inner.split(",");
             List<String> out = new ArrayList<>();
             for (String p : parts) {
@@ -158,9 +162,9 @@ public class ComplaintService {
                 if (v.equals("NULL")) continue;
                 out.add(v);
             }
-            return out;
+            return out.toArray(String[]::new);
         }
-        return List.of(t);
+        return new String[]{ t };
     }
 
     private static List<String> smartCsvSplit(String line) {
