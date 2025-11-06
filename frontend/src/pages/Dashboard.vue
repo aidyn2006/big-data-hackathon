@@ -18,46 +18,49 @@
       </DSCard>
     </div>
 
-    <DSCard class="soft-shadow">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px;">
-        <h3 class="title" style="margin:0;">Список жалоб</h3>
-        <div style="display:flex; gap:8px;">
-          <DSInput v-model="filters.route" placeholder="Маршрут" />
-          <DSInput v-model="filters.priority" placeholder="Приоритет" />
-          <DSButton variant="secondary" @click="loadComplaints">Фильтр</DSButton>
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+      <DSCard class="soft-shadow">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px;">
+          <h3 class="title" style="margin:0;">Список жалоб</h3>
+          <div style="display:flex; gap:8px;">
+            <DSInput v-model="filters.route" placeholder="Маршрут" />
+            <DSInput v-model="filters.priority" placeholder="Приоритет" />
+            <DSButton variant="secondary" @click="loadComplaints">Фильтр</DSButton>
+          </div>
         </div>
-      </div>
-      <div class="glass-card" style="overflow:auto; border-radius:12px;">
-        <table style="width:100%; border-collapse:separate; border-spacing:0;">
-          <thead>
-            <tr style="text-align:left;">
-              <th style="padding:12px;">Время</th>
-              <th style="padding:12px;">Маршрут</th>
-              <th style="padding:12px;">Объект</th>
-              <th style="padding:12px;">Текст</th>
-              <th style="padding:12px;">Приоритет</th>
-              <th style="padding:12px; width:160px;">Индекс</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="c in complaints" :key="c.id" style="border-top:1px solid rgba(2,8,23,0.06);">
-              <td style="padding:12px; white-space:nowrap;">{{ fmt(c.time || c.createdAt) }}</td>
-              <td style="padding:12px;">{{ c.route }}</td>
-              <td style="padding:12px;">{{ c.object }}</td>
-              <td style="padding:12px; max-width:420px;">{{ c.rawText }}</td>
-              <td style="padding:12px;">
-                <span :class="priorityClass(c.priority)" class="chip">{{ c.priority ?? 'нет' }}</span>
-              </td>
-              <td style="padding:12px;">
-                <div style="height:10px; background:#E2E8F0; border-radius:99px; overflow:hidden;">
-                  <div :style="{width: `${Math.round((c.confidence || 0)*100)}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', height: '100%'}"></div>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </DSCard>
+        <div class="glass-card" style="overflow:auto; border-radius:12px;">
+          <table style="width:100%; border-collapse:separate; border-spacing:0;">
+            <thead>
+              <tr style="text-align:left;">
+                <th style="padding:12px;">Время</th>
+                <th style="padding:12px;">Маршрут</th>
+                <th style="padding:12px;">Объект</th>
+                <th style="padding:12px;">Текст</th>
+                <th style="padding:12px;">Приоритет</th>
+                <th style="padding:12px; width:160px;">Индекс</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="c in complaints" :key="c.id" style="border-top:1px solid rgba(2,8,23,0.06);">
+                <td style="padding:12px; white-space:nowrap;">{{ fmt(c.time || c.createdAt) }}</td>
+                <td style="padding:12px;">{{ c.route }}</td>
+                <td style="padding:12px;">{{ c.object }}</td>
+                <td style="padding:12px; max-width:420px;">{{ c.rawText }}</td>
+                <td style="padding:12px;">
+                  <span :class="priorityClass(c.priority)" class="chip">{{ c.priority ?? 'нет' }}</span>
+                </td>
+                <td style="padding:12px;">
+                  <div style="height:10px; background:#E2E8F0; border-radius:99px; overflow:hidden;">
+                    <div :style="{width: `${Math.round((c.confidence || 0)*100)}%`, background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', height: '100%'}"></div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </DSCard>
+      <ChatBox />
+    </div>
 
     <div class="grid cols-3">
       <RouteBar :byRoute="summary.byRoute || {}" />

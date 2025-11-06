@@ -117,26 +117,7 @@ public class ComplaintService {
         return resp;
     }
 
-    public Complaint createFromChat(String message) {
-        Complaint c = new Complaint();
-        c.setRawText(message);
-        // simple route extraction (digits)
-        String digits = message == null ? null : message.replaceAll("[^0-9]", "");
-        if (digits != null && !digits.isBlank()) {
-            c.setRoute(digits);
-        }
-        c.setAspect(new String[]{});
-        c.setEvidence(new String[]{});
-        return complaintRepository.save(c);
-    }
-
-    public Complaint save(Complaint complaint) {
-        return complaintRepository.save(complaint);
-    }
-
-    public List<Complaint> saveAll(List<Complaint> complaints) {
-        return complaintRepository.saveAll(complaints);
-    }
+    // All write operations are disabled per current requirements
 
     private static String stripQuotes(String s) {
         if (s == null) return null;

@@ -37,9 +37,9 @@ async function send() {
   try {
     const { data } = await axios.post('/api/complaints/chat', { message: t })
     messages.value.push({ role: 'assistant', text: data.reply })
-    statusMsg.value = 'Жалоба сохранена'
+    statusMsg.value = 'Сообщение отправлено'
   } catch (e) {
-    messages.value.push({ role: 'assistant', text: 'Не удалось сохранить жалобу. Попробуйте позже.' })
+    messages.value.push({ role: 'assistant', text: 'Не удалось отправить. Попробуйте позже.' })
   }
   await nextTick(); scrollBottom()
 }
