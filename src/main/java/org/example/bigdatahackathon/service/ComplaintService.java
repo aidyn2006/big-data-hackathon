@@ -130,6 +130,14 @@ public class ComplaintService {
         return complaintRepository.save(c);
     }
 
+    public Complaint save(Complaint complaint) {
+        return complaintRepository.save(complaint);
+    }
+
+    public List<Complaint> saveAll(List<Complaint> complaints) {
+        return complaintRepository.saveAll(complaints);
+    }
+
     private static String stripQuotes(String s) {
         if (s == null) return null;
         String t = s.strip();

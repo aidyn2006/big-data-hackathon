@@ -1,30 +1,33 @@
 <template>
-  <transition name="fade">
-    <div v-if="open" class="overlay" @click.self="$emit('close')">
-      <div class="panel glass-card soft-shadow">
-        <header>
-          <h3>{{ mode === 'login' ? 'Войти' : 'Регистрация' }}</h3>
-          <button class="close" @click="$emit('close')">✕</button>
-        </header>
-        <div class="content">
-          <div class="form">
-            <DSInput v-model="username" label="Имя пользователя" placeholder="username" />
-            <DSInput v-if="mode==='register'" v-model="email" label="Email" placeholder="email" />
-            <DSInput v-model="password" type="password" label="Пароль" placeholder="••••••" />
-            <DSButton :disabled="loading" @click="submit">
-              {{ loading ? '...' : (mode==='login' ? 'Войти' : 'Зарегистрироваться') }}
-            </DSButton>
-            <div class="subtitle" v-if="error" style="color:#b91c1c;">{{ error }}</div>
-            <div class="toggle subtitle">
-              <span v-if="mode==='login'">Нет аккаунта?
-                <a @click="mode='register'">Зарегистрироваться</a></span>
-              <span v-else>Уже есть аккаунт? <a @click="mode='login'">Войти</a></span>
+  <teleport to="body">
+    <transition name="fade">
+      <div v-if="open" class="overlay" @click.self="$emit('close')">
+        <div class="panel glass-card soft-shadow">
+          <header>
+            <h3>{{ mode === 'login' ? 'Войти' : 'Регистрация' }}</h3>
+            <button class="close" @click="$emit('close')">✕</button>
+          </header>
+          <div class="content">
+            <div class="form">
+              <DSInput v-model="username" label="Имя пользователя" placeholder="username" />
+              <DSInput v-if="mode==='register'" v-model="email" label="Email" placeholder="email" />
+              <DSInput v-model="password" type="password" label="Пароль" placeholder="••••••" />
+              <DSButton :disabled="loading" @click="submit">
+                {{ loading ? '...' : (mode==='login' ? 'Войти' : 'Зарегистрироваться') }}
+              </DSButton>
+              <div class="subtitle" v-if="error" style="color:#b91c1c;">{{ error }}</div>
+              <div class="toggle subtitle">
+                <span v-if="mode==='login'">Нет аккаунта?
+                  <a @click="mode='register'">Зарегистрироваться</a></span>
+                <span v-else>Уже есть аккаунт? <a @click="mode='login'">Войти</a></span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </transition>
+    </transition>
+  </teleport>
+  
 </template>
 
 <script setup>

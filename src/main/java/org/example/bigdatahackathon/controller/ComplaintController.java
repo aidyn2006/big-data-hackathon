@@ -54,6 +54,16 @@ public class ComplaintController {
         String reply = "Спасибо! Жалоба сохранена. Номер маршрута: " + (saved.getRoute() == null ? "—" : saved.getRoute());
         return ResponseEntity.ok(Map.of("reply", reply, "complaint", saved));
     }
+
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Complaint> create(@RequestBody Complaint complaint) {
+        return ResponseEntity.ok(complaintService.save(complaint));
+    }
+
+    @PostMapping(value = "/bulk", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<Complaint>> bulkCreate(@RequestBody List<Complaint> complaints) {
+        return ResponseEntity.ok(complaintService.saveAll(complaints));
+    }
 }
 
 
