@@ -1,11 +1,11 @@
 <template>
   <div class="ai-response">
-    <div v-if="data.recommendation" class="recommendation-card">
+    <div v-if="data.recommendation || data.recommendation_kk" class="recommendation-card">
       <div class="recommendation-header">
         <span class="icon">💡</span>
         <span class="label">Ұсыныс / Рекомендация</span>
       </div>
-      <p class="recommendation-text">{{ data.recommendation }}</p>
+      <p class="recommendation-text">{{ data.recommendation_kk || data.recommendation }}</p>
     </div>
     
     <div class="data-grid">
@@ -43,11 +43,11 @@
       </div>
     </div>
     
-    <div v-if="data.aspects && data.aspects.length > 0" class="aspects-section">
+    <div v-if="(data.aspects && data.aspects.length > 0) || (data.aspect && data.aspect.length > 0)" class="aspects-section">
       <div class="data-label">Аспекты жалобы</div>
       <div class="aspects-list">
-        <span v-for="(aspect, i) in data.aspects" :key="i" class="aspect-chip">
-          {{ aspect }}
+        <span v-for="(asp, i) in (data.aspects || data.aspect || [])" :key="i" class="aspect-chip">
+          {{ asp }}
         </span>
       </div>
     </div>

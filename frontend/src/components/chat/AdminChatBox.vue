@@ -112,30 +112,84 @@ async function send() {
     
     console.log('=== FULL RESPONSE ===')
     console.log('Data:', response.data)
+    console.log('Data type:', typeof response.data)
+    console.log('Data length:', response.data?.length)
+    console.log('Data trimmed:', response.data?.trim())
+    console.log('Data is falsy?', !response.data)
     console.log('=====================')
     
     statusMsg.value = ''
     
-    // Parse JSON and extract recommendation_kk
-    let displayText = response.data || '[Пустой ответ от сервера]'
+    // Check if response is actually empty
+    if (!response.data || response.data.trim() === '') {
+      console.error('EMPTY RESPONSE FROM SERVER!')
+      messages.value.push({
+        role: 'assistant', 
+        text: '[Сервер вернул пустой ответ. Проверьте логи бэкенда и n8n workflow]'
+      })
+      await nextTick()
+      scrollBottom()
+      return
+    }
+    
+    // Parse JSON and extract data (handle nested output field)
+    let displayText = response.data
+    let aiData = null
+    
     try {
-      const parsed = JSON.parse(response.data)
-      console.log('Parsed:', parsed)
+      let parsed = JSON.parse(response.data)
+      console.log('Parsed level 1:', parsed)
+      
+      // Check if there's an "output" field with nested JSON
+      if (parsed.output && typeof parsed.output === 'string') {
+        try {
+          parsed = JSON.parse(parsed.output)
+          console.log('Parsed level 2 (from output):', parsed)
+        } catch (e) {
+          console.log('Output is not JSON, using as is')
+        }
+      }
+      
+      // Store full data for AIResponseCard
+      aiData = parsed
+      
+      // Extract text for typing animation
       if (parsed.recommendation_kk) {
         displayText = parsed.recommendation_kk
       } else if (parsed.recommendation) {
         displayText = parsed.recommendation
+      } else if (parsed.message) {
+        displayText = parsed.message
+      } else if (parsed.answer) {
+        displayText = parsed.answer
       } else {
         displayText = JSON.stringify(parsed, null, 2)
       }
     } catch (e) {
-      console.log('Not JSON, showing as is')
+      console.log('Not JSON, showing raw text:', response.data)
     }
     
+    // Add message with typing animation
+    const msgIndex = messages.value.length
     messages.value.push({
       role: 'assistant', 
-      text: displayText
+      text: '',
+      isTyping: true,
+      data: aiData
     })
+    
+    await nextTick()
+    scrollBottom()
+    
+    // Animate typing
+    let currentText = ''
+    for (let i = 0; i < displayText.length; i++) {
+      currentText += displayText[i]
+      messages.value[msgIndex].text = currentText
+      await new Promise(resolve => setTimeout(resolve, 20)) // 20ms per character
+      scrollBottom()
+    }
+    messages.value[msgIndex].isTyping = false
   } catch (e) {
     statusMsg.value = ''
     console.error('Request failed:', e)
