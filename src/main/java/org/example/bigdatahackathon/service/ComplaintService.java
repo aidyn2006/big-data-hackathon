@@ -165,6 +165,10 @@ public class ComplaintService {
         return complaintRepository.save(complaint);
     }
 
+    public Optional<Complaint> findById(UUID id) {
+        return complaintRepository.findById(id);
+    }
+
     private static String stripQuotes(String s) {
         if (s == null) return null;
         String t = s.strip();

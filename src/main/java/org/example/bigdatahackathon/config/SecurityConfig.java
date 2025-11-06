@@ -38,13 +38,13 @@ public class SecurityConfig {
                 .maximumSessions(1)
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/", "/index.html", "/static/**").permitAll()
+                .requestMatchers("/api/auth/**", "/", "/index.html", "/static/**", "/assets/**").permitAll()
                 // public chat endpoints (no DB write)
-                .requestMatchers("/api/complaints/chat", "/api/complaints/chat-voice").permitAll()
-                // resident endpoints
-                .requestMatchers("/api/complaints/submit", "/api/complaints/mine").hasAnyRole("USER", "ADMIN")
+                .requestMatchers("/api/complaints/chat", "/api/complaints/chat-voice", "/api/complaints/chat-photo").permitAll()
+                // resident endpoints (authenticated)
+                .requestMatchers("/api/complaints/submit", "/api/complaints/submit-photo", "/api/complaints/mine").authenticated()
                 // admin endpoints
-                .requestMatchers("/api/complaints/summary", "/api/complaints", "/api/complaints/*/status").hasRole("ADMIN")
+                .requestMatchers("/api/complaints/summary", "/api/complaints", "/api/complaints/*/status", "/api/complaints/admin-chat").hasRole("ADMIN")
                 .anyRequest().permitAll()
             );
         return http.build();

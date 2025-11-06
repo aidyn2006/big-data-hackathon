@@ -1,5 +1,12 @@
 <template>
   <div class="grid" style="gap: 24px;">
+    <!-- Admin AI Chat Button -->
+    <div v-if="isAdmin" style="display: flex; justify-content: flex-end; margin-bottom: -8px;">
+      <DSButton @click="openAdminChat = true" variant="secondary">
+        🤖 AI Помощник для анализа
+      </DSButton>
+    </div>
+
     <!-- Stats Overview -->
     <div class="grid cols-3">
       <DSCard class="soft-shadow stats-card">
@@ -62,7 +69,10 @@
                   <span :class="priorityClass(c.priority)" class="chip">{{ c.priority ?? 'нет' }}</span>
                 </td>
                 <td style="padding:12px;">
-                  <DSButton variant="secondary" size="sm" @click="openMap(c)">📍</DSButton>
+                  <div style="display:flex; gap:4px;">
+                    <DSButton variant="secondary" size="sm" @click="openMap(c)">📍</DSButton>
+                    <DSButton variant="secondary" size="sm" @click="discussComplaint(c)">💬</DSButton>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -84,6 +94,7 @@
     </div>
   </div>
   <ComplaintMapModal :open="mapModalOpen" :complaint="mapComplaint" @close="mapModalOpen=false" />
+  <AdminChatModal :open="openAdminChat" :complaint="selectedComplaint" @close="closeAdminChat" />
 </template>
 
 <script setup>
@@ -99,6 +110,7 @@ import { ref, onMounted, computed } from 'vue'
 import { auth } from '../store/auth'
 import ComplaintMapModal from '../components/admin/ComplaintMapModal.vue'
 import MyComplaints from '../components/resident/MyComplaints.vue'
+import AdminChatModal from '../components/ui/AdminChatModal.vue'
 
 const summary = ref({ byPriority: {}, byRoute: {}, total: 0, avgConfidence: 0 })
 const complaints = ref([])
@@ -106,7 +118,13 @@ const filters = ref({ route: '', priority: '' })
 const isAdmin = computed(() => auth.user?.authorities?.some(a => a.authority === 'ROLE_ADMIN'))
 const mapModalOpen = ref(false)
 const mapComplaint = ref(null)
+const openAdminChat = ref(false)
+const selectedComplaint = ref(null)
 function openMap(c) { mapComplaint.value = c; mapModalOpen.value = true }
+function discussComplaint(c) { 
+  selectedComplaint.value = c
+  openAdminChat.value = true 
+}
 
 async function loadSummary() {
   const { data } = await axios.get('/api/complaints/summary')
@@ -134,6 +152,11 @@ function priorityClass(p) {
   if (t.includes('жоғ') || t.includes('выс')) return 'chip danger'
   if (t.includes('орт') || t.includes('сред')) return 'chip warn'
   return 'chip info'
+}
+
+function closeAdminChat() {
+  openAdminChat.value = false
+  selectedComplaint.value = null
 }
 
 onMounted(async () => { 

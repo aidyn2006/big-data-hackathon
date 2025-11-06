@@ -39,6 +39,10 @@ public class ComplaintController {
     private String webhookUrl;
     @Value("${app.webhook.voice.url:}")
     private String voiceWebhookUrl;
+    @Value("${app.webhook.photo.url:}")
+    private String photoWebhookUrl;
+    @Value("${app.webhook.admin.url:}")
+    private String adminWebhookUrl;
     private static final Logger log = LoggerFactory.getLogger(ComplaintController.class);
 
     public ComplaintController(ComplaintService complaintService, RestTemplate restTemplate, UserService userService, ObjectMapper objectMapper) {
@@ -163,25 +167,46 @@ public class ComplaintController {
     }
 
     @PostMapping(value = "/chat-voice", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> chatVoice(@RequestPart("file") MultipartFile file,
+    public ResponseEntity<String> chatVoice(@RequestPart(value = "audio", required = false) MultipartFile audioFile,
+                                            @RequestPart(value = "file", required = false) MultipartFile file,
                                             @RequestPart(value = "text", required = false) String text,
                                             @RequestPart(value = "lat", required = false) Double lat,
                                             @RequestPart(value = "lng", required = false) Double lng,
                                             Principal principal) {
-        if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Файл пустой\"}");
+        // Accept both "audio" and "file" parameter names
+        MultipartFile voiceFile = audioFile != null ? audioFile : file;
+        
+        if (voiceFile == null || voiceFile.isEmpty()) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Аудио файл отсутствует\"}");
         }
+        
+        log.info("Received voice file: {} ({} bytes, type: {})", 
+                 voiceFile.getOriginalFilename(), 
+                 voiceFile.getSize(), 
+                 voiceFile.getContentType());
+        
         try {
             if (voiceWebhookUrl != null && !voiceWebhookUrl.isBlank()) {
-                ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
+                ByteArrayResource resource = new ByteArrayResource(voiceFile.getBytes()) {
                     @Override
-                    public String getFilename() { return file.getOriginalFilename() != null ? file.getOriginalFilename() : "voice.webm"; }
+                    public String getFilename() { 
+                        return voiceFile.getOriginalFilename() != null ? voiceFile.getOriginalFilename() : "voice.webm"; 
+                    }
                 };
+                
                 MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-                body.add("file", resource);
-                if (text != null) { body.add("text", text); }
-                if (lat != null) { body.add("lat", String.valueOf(lat)); body.add("latitude", String.valueOf(lat)); }
-                if (lng != null) { body.add("lng", String.valueOf(lng)); body.add("longitude", String.valueOf(lng)); }
+                body.add("audio", resource);
+                body.add("file", resource); // Send as both for compatibility
+                
+                if (text != null && !text.isBlank()) { body.add("text", text); }
+                if (lat != null) { 
+                    body.add("lat", String.valueOf(lat)); 
+                    body.add("latitude", String.valueOf(lat)); 
+                }
+                if (lng != null) { 
+                    body.add("lng", String.valueOf(lng)); 
+                    body.add("longitude", String.valueOf(lng)); 
+                }
                 if (principal != null) {
                     try {
                         Long userId = userService.findByUsername(principal.getName()).getId();
@@ -189,18 +214,256 @@ public class ComplaintController {
                         body.add("username", principal.getName());
                     } catch (Exception ignored) {}
                 }
+                
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.MULTIPART_FORM_DATA);
                 HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
+                
+                log.info("Sending voice to webhook: {}", voiceWebhookUrl);
                 var resp = restTemplate.exchange(voiceWebhookUrl, HttpMethod.POST, entity, String.class);
-                log.info("Voice webhook sent to {} ({} bytes), status {}", voiceWebhookUrl, file.getSize(), resp.getStatusCode());
+                log.info("Voice webhook response: status={}, body length={}", resp.getStatusCode(), resp.getBody() != null ? resp.getBody().length() : 0);
+                
                 HttpHeaders out = new HttpHeaders();
                 out.setContentType(resp.getHeaders().getContentType() != null ? resp.getHeaders().getContentType() : MediaType.APPLICATION_JSON);
                 return new ResponseEntity<>(resp.getBody(), out, resp.getStatusCode());
             }
         } catch (Exception e) {
-            log.warn("Voice webhook sending failed: {}", e.toString());
-            return ResponseEntity.status(502).body("{\"error\":\"Webhook failed\"}");
+            log.error("Voice webhook sending failed", e);
+            return ResponseEntity.status(502).body("{\"error\":\"Ошибка отправки на сервер: " + e.getMessage() + "\"}");
+        }
+        return ResponseEntity.status(503).body("{\"error\":\"URL вебхука не настроен\"}");
+    }
+    
+    @PostMapping(value = "/chat-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<String> chatPhoto(@RequestPart(value = "photo", required = false) MultipartFile photoFile,
+                                           @RequestPart(value = "image", required = false) MultipartFile imageFile,
+                                           @RequestPart(value = "text", required = false) String text,
+                                           @RequestPart(value = "lat", required = false) Double lat,
+                                           @RequestPart(value = "lng", required = false) Double lng,
+                                           Principal principal) {
+        // Accept both "photo" and "image" parameter names
+        MultipartFile photo = photoFile != null ? photoFile : imageFile;
+        
+        if (photo == null || photo.isEmpty()) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Фото отсутствует\"}");
+        }
+        
+        log.info("Received photo: {} ({} bytes, type: {})", 
+                 photo.getOriginalFilename(), 
+                 photo.getSize(), 
+                 photo.getContentType());
+        
+        try {
+            if (photoWebhookUrl != null && !photoWebhookUrl.isBlank()) {
+                ByteArrayResource resource = new ByteArrayResource(photo.getBytes()) {
+                    @Override
+                    public String getFilename() { 
+                        return photo.getOriginalFilename() != null ? photo.getOriginalFilename() : "photo.jpg"; 
+                    }
+                };
+                
+                MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+                body.add("photo", resource);
+                body.add("image", resource); // Send as both for compatibility
+                
+                if (text != null && !text.isBlank()) { body.add("text", text); }
+                if (lat != null) { 
+                    body.add("lat", String.valueOf(lat)); 
+                    body.add("latitude", String.valueOf(lat)); 
+                }
+                if (lng != null) { 
+                    body.add("lng", String.valueOf(lng)); 
+                    body.add("longitude", String.valueOf(lng)); 
+                }
+                if (principal != null) {
+                    try {
+                        Long userId = userService.findByUsername(principal.getName()).getId();
+                        body.add("userId", String.valueOf(userId));
+                        body.add("username", principal.getName());
+                    } catch (Exception ignored) {}
+                }
+                
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+                HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
+                
+                log.info("Sending photo to webhook: {}", photoWebhookUrl);
+                var resp = restTemplate.exchange(photoWebhookUrl, HttpMethod.POST, entity, String.class);
+                log.info("Photo webhook response: status={}, body length={}", resp.getStatusCode(), resp.getBody() != null ? resp.getBody().length() : 0);
+                
+                HttpHeaders out = new HttpHeaders();
+                out.setContentType(resp.getHeaders().getContentType() != null ? resp.getHeaders().getContentType() : MediaType.APPLICATION_JSON);
+                return new ResponseEntity<>(resp.getBody(), out, resp.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("Photo webhook sending failed", e);
+            return ResponseEntity.status(502).body("{\"error\":\"Ошибка отправки на сервер: " + e.getMessage() + "\"}");
+        }
+        return ResponseEntity.status(503).body("{\"error\":\"URL вебхука не настроен\"}");
+    }
+    
+    @PostMapping(value = "/submit-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<String> submitPhoto(@RequestPart(value = "photo", required = false) MultipartFile photoFile,
+                                             @RequestPart(value = "image", required = false) MultipartFile imageFile,
+                                             @RequestPart(value = "text", required = false) String text,
+                                             @RequestPart(value = "lat", required = false) Double lat,
+                                             @RequestPart(value = "lng", required = false) Double lng,
+                                             Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        
+        MultipartFile photo = photoFile != null ? photoFile : imageFile;
+        if (photo == null || photo.isEmpty()) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Фото отсутствует\"}");
+        }
+        
+        log.info("Received photo from user {}: {} ({} bytes)", 
+                 principal.getName(), 
+                 photo.getOriginalFilename(), 
+                 photo.getSize());
+        
+        // Save complaint to DB
+        Long userId = null;
+        try { userId = userService.findByUsername(principal.getName()).getId(); } catch (Exception ignored) {}
+        String message = text != null ? text : "Жалоба с фото";
+        Complaint saved = complaintService.submit(message, principal.getName(), lat, lng, userId);
+        
+        try {
+            if (photoWebhookUrl != null && !photoWebhookUrl.isBlank()) {
+                ByteArrayResource resource = new ByteArrayResource(photo.getBytes()) {
+                    @Override
+                    public String getFilename() { 
+                        return photo.getOriginalFilename() != null ? photo.getOriginalFilename() : "photo.jpg"; 
+                    }
+                };
+                
+                MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+                body.add("photo", resource);
+                body.add("image", resource);
+                body.add("complaintId", saved.getId().toString());
+                
+                if (text != null && !text.isBlank()) { body.add("text", text); }
+                if (lat != null) { body.add("lat", String.valueOf(lat)); body.add("latitude", String.valueOf(lat)); }
+                if (lng != null) { body.add("lng", String.valueOf(lng)); body.add("longitude", String.valueOf(lng)); }
+                if (userId != null) { body.add("userId", String.valueOf(userId)); body.add("username", principal.getName()); }
+                
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+                HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
+                
+                var resp = restTemplate.exchange(photoWebhookUrl, HttpMethod.POST, entity, String.class);
+                
+                // Parse AI response and update complaint
+                try {
+                    JsonNode aiResponse = objectMapper.readTree(resp.getBody());
+                    updateComplaintFromAI(saved, aiResponse);
+                } catch (Exception parseEx) {
+                    log.warn("Failed to parse AI response: {}", parseEx.getMessage());
+                }
+                
+                HttpHeaders out = new HttpHeaders();
+                out.setContentType(resp.getHeaders().getContentType() != null ? resp.getHeaders().getContentType() : MediaType.APPLICATION_JSON);
+                return new ResponseEntity<>(resp.getBody(), out, resp.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("Photo webhook (submit) failed", e);
+            return ResponseEntity.status(502).body("{\"error\":\"Ошибка отправки на сервер: " + e.getMessage() + "\"}");
+        }
+        return ResponseEntity.ok("{\"status\":\"saved\"}");
+    }
+
+    @PostMapping(value = "/admin-chat", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<String> adminChat(@RequestBody Map<String, Object> req, Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        
+        String message = (String) req.get("message");
+        if (message == null || message.isBlank()) {
+            return ResponseEntity.badRequest().body("{\"error\":\"Пустое сообщение\"}");
+        }
+        
+        String complaintIdStr = (String) req.get("complaintId");
+        
+        try {
+            if (adminWebhookUrl != null && !adminWebhookUrl.isBlank()) {
+                // Build context payload
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("message", message);
+                payload.put("username", principal.getName());
+                
+                // If specific complaint is being discussed
+                if (complaintIdStr != null && !complaintIdStr.isBlank()) {
+                    try {
+                        UUID complaintId = UUID.fromString(complaintIdStr);
+                        Optional<Complaint> complaintOpt = complaintService.findById(complaintId);
+                        
+                        if (complaintOpt.isPresent()) {
+                            Complaint c = complaintOpt.get();
+                            Map<String, Object> complaintData = new HashMap<>();
+                            complaintData.put("id", c.getId().toString());
+                            complaintData.put("rawText", c.getRawText());
+                            complaintData.put("route", c.getRoute());
+                            complaintData.put("object", c.getObject());
+                            complaintData.put("time", c.getTime() != null ? c.getTime().toString() : null);
+                            complaintData.put("place", c.getPlace());
+                            complaintData.put("actor", c.getActor());
+                            complaintData.put("aspect", c.getAspect());
+                            complaintData.put("priority", c.getPriority());
+                            complaintData.put("evidence", c.getEvidence());
+                            complaintData.put("confidence", c.getConfidence());
+                            complaintData.put("status", c.getStatus());
+                            complaintData.put("createdBy", c.getCreatedBy());
+                            complaintData.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : null);
+                            complaintData.put("latitude", c.getLatitude());
+                            complaintData.put("longitude", c.getLongitude());
+                            
+                            payload.put("complaint", complaintData);
+                            payload.put("context", "specific_complaint");
+                        }
+                    } catch (Exception e) {
+                        log.warn("Invalid complaint ID: {}", complaintIdStr);
+                    }
+                } else {
+                    // General context - provide summary and recent complaints
+                    Map<String, Object> summary = complaintService.summary();
+                    payload.put("summary", summary);
+                    payload.put("context", "general_analysis");
+                    
+                    // Get recent complaints
+                    List<Complaint> recentComplaints = complaintService.list(
+                        Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(10)
+                    );
+                    
+                    // Add simplified complaints data
+                    List<Map<String, Object>> complaintsData = new ArrayList<>();
+                    for (Complaint c : recentComplaints) {
+                        Map<String, Object> cd = new HashMap<>();
+                        cd.put("id", c.getId().toString());
+                        cd.put("rawText", c.getRawText());
+                        cd.put("route", c.getRoute());
+                        cd.put("priority", c.getPriority());
+                        cd.put("place", c.getPlace());
+                        cd.put("actor", c.getActor());
+                        cd.put("status", c.getStatus());
+                        cd.put("createdAt", c.getCreatedAt() != null ? c.getCreatedAt().toString() : null);
+                        complaintsData.add(cd);
+                    }
+                    payload.put("recentComplaints", complaintsData);
+                }
+                
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+                
+                log.info("Sending admin chat to webhook: {}", adminWebhookUrl);
+                var resp = restTemplate.exchange(adminWebhookUrl, HttpMethod.POST, entity, String.class);
+                log.info("Admin webhook response: status={}, body={}", resp.getStatusCode(), resp.getBody());
+                
+                HttpHeaders out = new HttpHeaders();
+                out.setContentType(resp.getHeaders().getContentType() != null ? resp.getHeaders().getContentType() : MediaType.APPLICATION_JSON);
+                return new ResponseEntity<>(resp.getBody(), out, resp.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.error("Admin webhook sending failed", e);
+            return ResponseEntity.status(502).body("{\"error\":\"Webhook failed: " + e.getMessage() + "\"}");
         }
         return ResponseEntity.status(503).body("{\"error\":\"Webhook URL is empty\"}");
     }
