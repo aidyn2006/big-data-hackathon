@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.UUID;
 
 @Repository
 public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
@@ -19,6 +20,8 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
     List<Complaint> findByActor(String actor);
     
     List<Complaint> findByPlace(String place);
+
+    List<Complaint> findByCreatedByOrderByCreatedAtDesc(String createdBy);
     
     @Query("SELECT c FROM Complaint c WHERE c.route = :route AND c.priority = :priority")
     List<Complaint> findByRouteAndPriority(@Param("route") String route, @Param("priority") String priority);

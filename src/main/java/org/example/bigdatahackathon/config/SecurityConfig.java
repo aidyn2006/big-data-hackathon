@@ -33,10 +33,19 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                .maximumSessions(1)
+            )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/complaints/**", "/", "/index.html", "/static/**").permitAll()
-                .anyRequest().authenticated()
+                .requestMatchers("/api/auth/**", "/", "/index.html", "/static/**").permitAll()
+                // public chat endpoints (no DB write)
+                .requestMatchers("/api/complaints/chat", "/api/complaints/chat-voice").permitAll()
+                // resident endpoints
+                .requestMatchers("/api/complaints/submit", "/api/complaints/mine").hasAnyRole("USER", "ADMIN")
+                // admin endpoints
+                .requestMatchers("/api/complaints/summary", "/api/complaints", "/api/complaints/*/status").hasRole("ADMIN")
+                .anyRequest().permitAll()
             );
         return http.build();
     }
@@ -44,10 +53,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173", "*")); // dev + fallback
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173")); // dev
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(false);
+        configuration.setAllowCredentials(true); // Enable credentials for session cookies
+        configuration.setExposedHeaders(List.of("Set-Cookie"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

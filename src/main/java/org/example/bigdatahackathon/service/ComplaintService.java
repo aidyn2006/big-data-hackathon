@@ -41,19 +41,42 @@ public class ComplaintService {
         List<Complaint> all = complaintRepository.findAll();
         Map<String, Long> byPriority = new LinkedHashMap<>();
         Map<String, Long> byRoute = new LinkedHashMap<>();
+        Map<String, Long> byActor = new LinkedHashMap<>();
+        Map<String, Long> byAspect = new LinkedHashMap<>();
         double avgConfidence = 0.0;
+        
         for (Complaint c : all) {
+            // Priority
             String pr = c.getPriority() == null ? "(нет)" : c.getPriority();
             byPriority.put(pr, byPriority.getOrDefault(pr, 0L) + 1);
+            
+            // Route
             String route = c.getRoute() == null ? "(нет)" : c.getRoute();
             byRoute.put(route, byRoute.getOrDefault(route, 0L) + 1);
+            
+            // Actor
+            String actor = c.getActor() == null ? "(нет)" : c.getActor();
+            byActor.put(actor, byActor.getOrDefault(actor, 0L) + 1);
+            
+            // Aspects (array)
+            if (c.getAspect() != null) {
+                for (String aspect : c.getAspect()) {
+                    if (aspect != null && !aspect.isBlank()) {
+                        byAspect.put(aspect, byAspect.getOrDefault(aspect, 0L) + 1);
+                    }
+                }
+            }
+            
             if (c.getConfidence() != null) avgConfidence += c.getConfidence();
         }
+        
         int n = all.size();
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("total", n);
         resp.put("byPriority", byPriority);
         resp.put("byRoute", byRoute);
+        resp.put("byActor", byActor);
+        resp.put("byAspect", byAspect);
         resp.put("avgConfidence", n > 0 ? avgConfidence / n : 0.0);
         return resp;
     }
@@ -117,7 +140,30 @@ public class ComplaintService {
         return resp;
     }
 
-    // All write operations are disabled per current requirements
+    public List<Complaint> getMine(String username) {
+        return complaintRepository.findByCreatedByOrderByCreatedAtDesc(username);
+    }
+
+    public Complaint submit(String message, String username, Double lat, Double lng, Long userId) {
+        Complaint c = new Complaint();
+        c.setRawText(message);
+        c.setCreatedBy(username);
+        c.setStatus("NEW");
+        c.setLatitude(lat);
+        c.setLongitude(lng);
+        c.setUserId(userId);
+        return complaintRepository.save(c);
+    }
+
+    public Complaint updateStatus(UUID id, String status) {
+        Complaint c = complaintRepository.findById(id).orElseThrow();
+        c.setStatus(status);
+        return complaintRepository.save(c);
+    }
+    
+    public Complaint save(Complaint complaint) {
+        return complaintRepository.save(complaint);
+    }
 
     private static String stripQuotes(String s) {
         if (s == null) return null;

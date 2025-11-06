@@ -12,6 +12,7 @@
       </div>
     </div>
     <AuthModal :open="openAuth" @close="openAuth=false" />
+    <ChatModal :open="openChat" @close="openChat=false" />
   </header>
 </template>
 
@@ -20,8 +21,10 @@ import DSButton from './DSButton.vue'
 import AuthModal from './AuthModal.vue'
 import { ref, onMounted } from 'vue'
 import { auth, checkMe, logout } from '../../store/auth'
+import ChatModal from './ChatModal.vue'
 
 const openAuth = ref(false)
+const openChat = ref(false)
 onMounted(() => checkMe())
 </script>
 
@@ -30,7 +33,7 @@ onMounted(() => checkMe())
 .nav-inner { display: flex; align-items: center; justify-content: space-between; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -0.02em; }
 .dot { width: 12px; height: 12px; background: var(--accent); border-radius: 999px; box-shadow: 0 0 0 6px rgba(167,139,250,0.2); }
-.actions { display: flex; gap: 8px; }
+.actions { display: flex; gap: 8px; align-items: center; }
 </style>
 
 

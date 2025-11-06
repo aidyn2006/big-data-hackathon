@@ -7,9 +7,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,6 +37,7 @@ public class AuthController {
             String username = request.get("username");
             String password = request.get("password");
             String email = request.get("email");
+            String roles = request.get("roles");
             
             if (username == null || username.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Имя пользователя обязательно"));
@@ -44,7 +49,7 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Email обязателен"));
             }
             
-            User user = userService.registerUser(username, password, email);
+            User user = userService.registerUser(username, password, email, roles);
             
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Пользователь успешно зарегистрирован");
@@ -58,7 +63,7 @@ public class AuthController {
     }
     
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> login(@RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
         try {
             String username = request.get("username");
             String password = request.get("password");
@@ -71,11 +76,21 @@ public class AuthController {
                     new UsernamePasswordAuthenticationToken(username, password)
             );
             
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            // Create security context and save to session
+            SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+            securityContext.setAuthentication(authentication);
+            SecurityContextHolder.setContext(securityContext);
+            
+            // Save to HTTP session
+            HttpSession session = httpRequest.getSession(true);
+            session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
             
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Успешный вход");
-            response.put("username", username);
+            response.put("username", authentication.getName());
+            response.put("authorities", authentication.getAuthorities().stream()
+                    .map(a -> Map.of("authority", a.getAuthority()))
+                    .toList());
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -96,15 +111,19 @@ public class AuthController {
         Map<String, Object> response = new HashMap<>();
         response.put("username", username);
         response.put("authorities", authentication.getAuthorities().stream()
-                .map(a -> a.getAuthority())
+                .map(a -> Map.of("authority", a.getAuthority()))
                 .toList());
         
         return ResponseEntity.ok(response);
     }
     
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
+    public ResponseEntity<?> logout(HttpServletRequest request) {
         SecurityContextHolder.clearContext();
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
         return ResponseEntity.ok(Map.of("message", "Успешный выход"));
     }
 }

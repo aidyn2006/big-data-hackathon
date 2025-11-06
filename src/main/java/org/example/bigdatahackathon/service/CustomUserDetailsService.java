@@ -23,9 +23,9 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
     
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+    public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
         try {
-            User user = userService.findByUsername(username);
+            User user = userService.findByUsernameOrEmail(usernameOrEmail);
             return org.springframework.security.core.userdetails.User.builder()
                     .username(user.getUsername())
                     .password(user.getPassword())
@@ -36,7 +36,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                     .disabled(!user.getEnabled())
                     .build();
         } catch (RuntimeException e) {
-            throw new UsernameNotFoundException("Пользователь не найден: " + username, e);
+            throw new UsernameNotFoundException("Пользователь не найден: " + usernameOrEmail, e);
         }
     }
     

@@ -18,6 +18,13 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import java.security.Principal;
+import java.util.UUID;
+import org.example.bigdatahackathon.service.UserService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/api/complaints")
@@ -26,15 +33,19 @@ public class ComplaintController {
 
     private final ComplaintService complaintService;
     private final RestTemplate restTemplate;
+    private final UserService userService;
+    private final ObjectMapper objectMapper;
     @Value("${app.webhook.url:}")
     private String webhookUrl;
     @Value("${app.webhook.voice.url:}")
     private String voiceWebhookUrl;
     private static final Logger log = LoggerFactory.getLogger(ComplaintController.class);
 
-    public ComplaintController(ComplaintService complaintService, RestTemplate restTemplate) {
+    public ComplaintController(ComplaintService complaintService, RestTemplate restTemplate, UserService userService, ObjectMapper objectMapper) {
         this.complaintService = complaintService;
         this.restTemplate = restTemplate;
+        this.userService = userService;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping
@@ -51,10 +62,7 @@ public class ComplaintController {
         return ResponseEntity.ok(complaintService.summary());
     }
 
-    @PostMapping(value = "/bulk-text", consumes = MediaType.TEXT_PLAIN_VALUE)
-    public ResponseEntity<Map<String, Object>> bulkImportText(@RequestBody String body) {
-        return ResponseEntity.ok(complaintService.bulkImportFromText(body));
-    }
+    // CSV import disabled per requirements
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> dbHealth() {
@@ -63,8 +71,11 @@ public class ComplaintController {
     }
 
     @PostMapping(value = "/chat", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> chat(@RequestBody Map<String, String> req) {
-        String message = req.get("message");
+    public ResponseEntity<String> chat(@RequestBody Map<String, Object> req, Principal principal) {
+        String message = (String) req.get("message");
+        Double lat = null; Double lng = null;
+        try { if (req.get("lat") != null) lat = Double.valueOf(req.get("lat").toString()); } catch (Exception ignored) {}
+        try { if (req.get("lng") != null) lng = Double.valueOf(req.get("lng").toString()); } catch (Exception ignored) {}
         if (message == null || message.isBlank()) {
             return ResponseEntity.badRequest().body("{\"error\":\"Пустое сообщение\"}");
         }
@@ -72,6 +83,15 @@ public class ComplaintController {
             if (webhookUrl != null && !webhookUrl.isBlank()) {
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("message", message);
+                if (lat != null) { payload.put("lat", lat); payload.put("latitude", lat); }
+                if (lng != null) { payload.put("lng", lng); payload.put("longitude", lng); }
+                if (principal != null) {
+                    try {
+                        Long userId = userService.findByUsername(principal.getName()).getId();
+                        payload.put("userId", userId);
+                        payload.put("username", principal.getName());
+                    } catch (Exception ignored) {}
+                }
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
                 HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
@@ -88,9 +108,66 @@ public class ComplaintController {
         return ResponseEntity.status(503).body("{\"error\":\"Webhook URL is empty\"}");
     }
 
+    @GetMapping("/mine")
+    public ResponseEntity<List<Complaint>> mine(Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        return ResponseEntity.ok(complaintService.getMine(principal.getName()));
+    }
+
+    @PostMapping(value = "/submit", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<String> submit(@RequestBody Map<String, Object> req, Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        String message = (String) req.get("message");
+        Double lat = null; Double lng = null;
+        try { if (req.get("lat") != null) lat = Double.valueOf(req.get("lat").toString()); } catch (Exception ignored) {}
+        try { if (req.get("lng") != null) lng = Double.valueOf(req.get("lng").toString()); } catch (Exception ignored) {}
+        if (message == null || message.isBlank()) return ResponseEntity.badRequest().build();
+        Long userId = null;
+        try { userId = userService.findByUsername(principal.getName()).getId(); } catch (Exception ignored) {}
+        Complaint saved = complaintService.submit(message, principal.getName(), lat, lng, userId);
+        try {
+            if (webhookUrl != null && !webhookUrl.isBlank()) {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("message", message);
+                payload.put("complaintId", saved.getId());
+                if (lat != null) payload.put("lat", lat);
+                if (lng != null) payload.put("lng", lng);
+                if (userId != null) { payload.put("userId", userId); payload.put("username", principal.getName()); }
+                HttpHeaders headers = new HttpHeaders(); headers.setContentType(MediaType.APPLICATION_JSON);
+                var resp = restTemplate.exchange(webhookUrl, HttpMethod.POST, new HttpEntity<>(payload, headers), String.class);
+                
+                // Parse AI response and update complaint
+                try {
+                    JsonNode aiResponse = objectMapper.readTree(resp.getBody());
+                    updateComplaintFromAI(saved, aiResponse);
+                } catch (Exception parseEx) {
+                    log.warn("Failed to parse AI response: {}", parseEx.getMessage());
+                }
+                
+                HttpHeaders out = new HttpHeaders();
+                out.setContentType(resp.getHeaders().getContentType() != null ? resp.getHeaders().getContentType() : MediaType.APPLICATION_JSON);
+                return new ResponseEntity<>(resp.getBody(), out, resp.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.warn("Webhook (submit) failed: {}", e.toString());
+            return ResponseEntity.status(502).body("{\"error\":\"Webhook failed\"}");
+        }
+        return ResponseEntity.ok("{\"status\":\"saved\"}");
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<Complaint> updateStatus(@PathVariable("id") UUID id, @RequestBody Map<String, String> req) {
+        String status = req.get("status");
+        if (status == null || status.isBlank()) return ResponseEntity.badRequest().build();
+        return ResponseEntity.ok(complaintService.updateStatus(id, status));
+    }
+
     @PostMapping(value = "/chat-voice", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<String> chatVoice(@RequestPart("file") MultipartFile file,
-                                            @RequestPart(value = "text", required = false) String text) {
+                                            @RequestPart(value = "text", required = false) String text,
+                                            @RequestPart(value = "lat", required = false) Double lat,
+                                            @RequestPart(value = "lng", required = false) Double lng,
+                                            Principal principal) {
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body("{\"error\":\"Файл пустой\"}");
         }
@@ -103,6 +180,15 @@ public class ComplaintController {
                 MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
                 body.add("file", resource);
                 if (text != null) { body.add("text", text); }
+                if (lat != null) { body.add("lat", String.valueOf(lat)); body.add("latitude", String.valueOf(lat)); }
+                if (lng != null) { body.add("lng", String.valueOf(lng)); body.add("longitude", String.valueOf(lng)); }
+                if (principal != null) {
+                    try {
+                        Long userId = userService.findByUsername(principal.getName()).getId();
+                        body.add("userId", String.valueOf(userId));
+                        body.add("username", principal.getName());
+                    } catch (Exception ignored) {}
+                }
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.MULTIPART_FORM_DATA);
                 HttpEntity<MultiValueMap<String, Object>> entity = new HttpEntity<>(body, headers);
@@ -120,6 +206,70 @@ public class ComplaintController {
     }
 
     // Write endpoints disabled per requirement: do not store chat messages in DB
+    
+    /**
+     * Updates complaint with data extracted by AI agent
+     */
+    private void updateComplaintFromAI(Complaint complaint, JsonNode aiResponse) {
+        try {
+            // Extract route
+            if (aiResponse.has("route") && !aiResponse.get("route").isNull()) {
+                complaint.setRoute(aiResponse.get("route").asText());
+            }
+            
+            // Extract object
+            if (aiResponse.has("object") && !aiResponse.get("object").isNull()) {
+                complaint.setObject(aiResponse.get("object").asText());
+            }
+            
+            // Extract time
+            if (aiResponse.has("time") && !aiResponse.get("time").isNull()) {
+                try {
+                    String timeStr = aiResponse.get("time").asText();
+                    complaint.setTime(OffsetDateTime.parse(timeStr));
+                } catch (Exception e) {
+                    log.debug("Could not parse time: {}", e.getMessage());
+                }
+            }
+            
+            // Extract place
+            if (aiResponse.has("place") && !aiResponse.get("place").isNull()) {
+                complaint.setPlace(aiResponse.get("place").asText());
+            }
+            
+            // Extract actor
+            if (aiResponse.has("actor") && !aiResponse.get("actor").isNull()) {
+                complaint.setActor(aiResponse.get("actor").asText());
+            }
+            
+            // Extract aspects (array)
+            if (aiResponse.has("aspects") && aiResponse.get("aspects").isArray()) {
+                List<String> aspects = new ArrayList<>();
+                aiResponse.get("aspects").forEach(node -> aspects.add(node.asText()));
+                complaint.setAspect(aspects.toArray(new String[0]));
+            } else if (aiResponse.has("aspect") && aiResponse.get("aspect").isArray()) {
+                List<String> aspects = new ArrayList<>();
+                aiResponse.get("aspect").forEach(node -> aspects.add(node.asText()));
+                complaint.setAspect(aspects.toArray(new String[0]));
+            }
+            
+            // Extract priority
+            if (aiResponse.has("priority") && !aiResponse.get("priority").isNull()) {
+                complaint.setPriority(aiResponse.get("priority").asText());
+            }
+            
+            // Extract confidence
+            if (aiResponse.has("confidence") && !aiResponse.get("confidence").isNull()) {
+                complaint.setConfidence(aiResponse.get("confidence").asDouble());
+            }
+            
+            // Save updated complaint
+            complaintService.save(complaint);
+            log.info("Updated complaint {} with AI data", complaint.getId());
+        } catch (Exception e) {
+            log.error("Error updating complaint from AI: {}", e.getMessage(), e);
+        }
+    }
 }
 
 

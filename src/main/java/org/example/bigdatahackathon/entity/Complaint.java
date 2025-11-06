@@ -57,6 +57,21 @@ public class Complaint {
     
     @Column(columnDefinition = "DOUBLE PRECISION")
     private Double confidence;
+
+    @Column(name = "created_by", length = 100)
+    private String createdBy;
+
+    @Column(name = "status", length = 32)
+    private String status;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    @Column(name = "user_id")
+    private Long userId;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -70,6 +85,7 @@ public class Complaint {
         updatedAt = OffsetDateTime.now();
         if (aspect == null) aspect = new String[]{};
         if (evidence == null) evidence = new String[]{};
+        if (status == null) status = "NEW";
     }
     
     @PreUpdate

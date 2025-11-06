@@ -20,7 +20,7 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
     
-    public User registerUser(String username, String password, String email) {
+    public User registerUser(String username, String password, String email, String roles) {
         if (repository.existsByUsername(username)) {
             throw new RuntimeException("Пользователь с таким именем уже существует");
         }
@@ -32,13 +32,25 @@ public class UserService {
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password));
         user.setEmail(email);
-        user.getRoles().add(User.Role.USER);
+        
+        // Set role based on registration input
+        if ("ROLE_ADMIN".equals(roles)) {
+            user.getRoles().add(User.Role.ADMIN);
+        } else {
+            user.getRoles().add(User.Role.USER);
+        }
         
         return repository.save(user);
     }
     
     public User findByUsername(String username) {
         return repository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+    }
+    
+    public User findByUsernameOrEmail(String usernameOrEmail) {
+        return repository.findByUsername(usernameOrEmail)
+                .or(() -> repository.findByEmail(usernameOrEmail))
                 .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
     }
     

@@ -4,8 +4,9 @@
   --accent-2: #38BDF8; /* light blue (optional highlights) */
   --text: #0F172A; /* neutral depth */
   --muted: #64748B;
-  --card: rgba(255,255,255,0.7);
+  --card: rgba(255,255,255,0.85);
   --shadow: 0 10px 30px rgba(2,8,23,0.08);
+  --shadow-lg: 0 20px 60px rgba(2,8,23,0.15);
   --radius: 16px;
 }
 
@@ -14,8 +15,10 @@ html, body, #app { height: 100%; }
 body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: linear-gradient(135deg, var(--bg), #F3F0FF);
+  background: linear-gradient(135deg, #F8FAFC 0%, #F3F0FF 50%, #E0E7FF 100%);
+  background-attachment: fixed;
   color: var(--text);
+  min-height: 100vh;
 }
 
 .container {
@@ -29,9 +32,23 @@ body {
   backdrop-filter: blur(10px);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  border: 1px solid rgba(255,255,255,0.5);
+  transition: all 0.3s ease;
 }
 
-.soft-shadow { box-shadow: var(--shadow); }
+.glass-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.soft-shadow { 
+  box-shadow: var(--shadow); 
+  transition: all 0.3s ease;
+}
+
+.soft-shadow:hover {
+  box-shadow: var(--shadow-lg);
+}
 
 .title {
   font-weight: 700;
@@ -72,6 +89,63 @@ body {
 @keyframes pop {
   from { transform: scale(.98); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Button base styles */
+button {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Table improvements */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+table thead th {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+table tbody tr {
+  transition: background 0.2s ease;
+}
+
+table tbody tr:hover {
+  background: rgba(167,139,250,0.05);
 }
 
 
