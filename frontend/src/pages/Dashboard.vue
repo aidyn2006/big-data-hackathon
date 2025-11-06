@@ -1,21 +1,14 @@
 <template>
   <div class="grid" style="gap: 24px;">
+    <ChatBox />
     <div class="grid cols-3">
-      <DSCard>
+      <DSCard class="soft-shadow">
         <h2 class="title" style="margin:0 0 8px;">Всего жалоб</h2>
         <div style="font-size:36px; font-weight:800;">{{ summary.total ?? 0 }}</div>
         <div class="subtitle">Средний индекс уверенности: <b>{{ (summary.avgConfidence ?? 0).toFixed(2) }}</b></div>
       </DSCard>
-      <DSCard>
-        <h3 class="title" style="margin:0 0 12px;">По приоритету</h3>
-        <div class="grid" style="grid-template-columns: repeat(2,1fr); gap: 12px;">
-          <div v-for="(v,k) in summary.byPriority" :key="k" class="glass-card" style="padding:12px; border-radius:12px; display:flex; justify-content:space-between;">
-            <span class="subtitle">{{ k }}</span>
-            <b>{{ v }}</b>
-          </div>
-        </div>
-      </DSCard>
-      <DSCard>
+      <PriorityPie :byPriority="summary.byPriority || {}" />
+      <DSCard class="soft-shadow">
         <h3 class="title" style="margin:0 0 12px;">Импорт</h3>
         <textarea v-model="bulkText" placeholder="Вставьте строки CSV..." style="width:100%; min-height:100px; border-radius:12px; border:2px solid #E2E8F0; padding:12px;"></textarea>
         <div style="display:flex; gap:8px; margin-top:10px;">
@@ -25,7 +18,7 @@
       </DSCard>
     </div>
 
-    <DSCard>
+    <DSCard class="soft-shadow">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px;">
         <h3 class="title" style="margin:0;">Список жалоб</h3>
         <div style="display:flex; gap:8px;">
@@ -65,6 +58,12 @@
         </table>
       </div>
     </DSCard>
+
+    <div class="grid cols-3">
+      <RouteBar :byRoute="summary.byRoute || {}" />
+      <div></div>
+      <div></div>
+    </div>
   </div>
 </template>
 
@@ -73,6 +72,9 @@ import axios from 'axios'
 import DSCard from '../components/ui/DSCard.vue'
 import DSInput from '../components/ui/DSInput.vue'
 import DSButton from '../components/ui/DSButton.vue'
+import PriorityPie from '../components/charts/PriorityPie.vue'
+import RouteBar from '../components/charts/RouteBar.vue'
+import ChatBox from '../components/chat/ChatBox.vue'
 import { ref, onMounted } from 'vue'
 
 const summary = ref({ byPriority: {}, byRoute: {}, total: 0, avgConfidence: 0 })

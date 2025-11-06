@@ -117,6 +117,19 @@ public class ComplaintService {
         return resp;
     }
 
+    public Complaint createFromChat(String message) {
+        Complaint c = new Complaint();
+        c.setRawText(message);
+        // simple route extraction (digits)
+        String digits = message == null ? null : message.replaceAll("[^0-9]", "");
+        if (digits != null && !digits.isBlank()) {
+            c.setRoute(digits);
+        }
+        c.setAspect(new String[]{});
+        c.setEvidence(new String[]{});
+        return complaintRepository.save(c);
+    }
+
     private static String stripQuotes(String s) {
         if (s == null) return null;
         String t = s.strip();

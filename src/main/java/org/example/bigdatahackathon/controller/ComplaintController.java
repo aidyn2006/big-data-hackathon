@@ -43,6 +43,17 @@ public class ComplaintController {
         long count = complaintService.count();
         return ResponseEntity.ok(Map.of("status", "OK", "complaintsCount", count));
     }
+
+    @PostMapping(value = "/chat", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> chat(@RequestBody Map<String, String> req) {
+        String message = req.get("message");
+        if (message == null || message.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Пустое сообщение"));
+        }
+        var saved = complaintService.createFromChat(message);
+        String reply = "Спасибо! Жалоба сохранена. Номер маршрута: " + (saved.getRoute() == null ? "—" : saved.getRoute());
+        return ResponseEntity.ok(Map.of("reply", reply, "complaint", saved));
+    }
 }
 
 
