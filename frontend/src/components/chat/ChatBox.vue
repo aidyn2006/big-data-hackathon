@@ -229,78 +229,107 @@ function scrollBottom() {
 
 async function toggleRecord() {
   if (isRecording.value) {
+    // Stop recording
     isRecording.value = false
     if (recordingInterval) {
       clearInterval(recordingInterval)
       recordingInterval = null
     }
-    recordingTime.value = 0
+    
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop()
       // Stop all tracks
       mediaRecorder.stream.getTracks().forEach(track => track.stop())
     }
+    // Don't reset recordingTime here - it will be used in onstop
     return
   }
+  
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     chunks = []
-    
+
     // Use audio/webm or audio/ogg
     const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
     mediaRecorder = new MediaRecorder(stream, { mimeType })
-    
+
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
     mediaRecorder.onstop = async () => {
+      const duration = recordingTime.value
+      recordingTime.value = 0 // Reset after saving duration
+      
       const blob = new Blob(chunks, { type: mimeType })
       const extension = mimeType === 'audio/webm' ? 'webm' : 'ogg'
       const file = new File([blob], `voice.${extension}`, { type: mimeType })
-      
+
       const fd = new FormData()
       fd.append('audio', file, `voice.${extension}`)
       if (text.value) fd.append('text', text.value)
       if (lat.value != null) fd.append('lat', String(lat.value))
       if (lng.value != null) fd.append('lng', String(lng.value))
-      
-      messages.value.push({ 
-        role: 'user', 
-        text: `🎤 Голосовое сообщение (${recordingTime.value}s)` 
+
+      messages.value.push({
+        role: 'user',
+        text: `🎤 Голосовое сообщение (${duration}s)`
       })
       await nextTick(); scrollBottom()
-      
+
       statusMsg.value = 'Обработка голосового сообщения...'
-      
+
       try {
-        const { data } = await axios.post('/api/complaints/chat-voice', fd, { 
+        const response = await axios.post('/api/complaints/chat-voice', fd, {
           headers: { 'Content-Type': 'multipart/form-data' },
           transformResponse: r => r,
-          timeout: 60000 // 60 seconds timeout
+          timeout: 60000
+        })
+
+        statusMsg.value = ''
+
+        // Parse and display response
+        let displayText = response.data
+        let aiData = null
+        
+        try {
+          let parsed = JSON.parse(response.data)
+          if (parsed.output && typeof parsed.output === 'string') {
+            try {
+              parsed = JSON.parse(parsed.output)
+            } catch (e) {}
+          }
+          
+          aiData = parsed
+          displayText = parsed.recommendation_kk || 
+                       parsed.recommendation || 
+                       parsed.message || 
+                       parsed.answer || 
+                       parsed.response ||
+                       'Голосовое сообщение обработано'
+        } catch {
+          console.log('Not JSON, showing as is')
+        }
+
+        // Add with typing animation
+        const msgIndex = messages.value.length
+        messages.value.push({
+          role: 'assistant',
+          text: '',
+          isTyping: true,
+          data: aiData
         })
         
-        statusMsg.value = ''
+        await nextTick()
+        scrollBottom()
         
-           // Try to parse as JSON for structured display
-           try {
-             const parsed = JSON.parse(data)
-             if (parsed && typeof parsed === 'object') {
-               const responseText = parsed.recommendation_kk || 
-                                  parsed.recommendation || 
-                                  parsed.message || 
-                                  parsed.answer || 
-                                  parsed.response ||
-                                  'Голосовое сообщение обработано'
-               
-               messages.value.push({ 
-                 role: 'assistant', 
-                 text: responseText,
-                 data: parsed
-               })
-             } else {
-               messages.value.push({ role: 'assistant', text: data })
-             }
-           } catch {
-             messages.value.push({ role: 'assistant', text: data })
-           }
+        // Animate typing
+        let currentText = ''
+        for (let i = 0; i < displayText.length; i++) {
+          currentText += displayText[i]
+          messages.value[msgIndex].text = currentText
+          await new Promise(resolve => setTimeout(resolve, 20))
+          scrollBottom()
+        }
+        messages.value[msgIndex].isTyping = false
+        
       } catch (e) {
         statusMsg.value = ''
         const errorMsg = e.response?.data || 'Не удалось отправить голосовое сообщение'
@@ -308,11 +337,11 @@ async function toggleRecord() {
       }
       await nextTick(); scrollBottom()
     }
-    
+
     mediaRecorder.start()
     isRecording.value = true
     recordingTime.value = 0
-    
+
     // Start timer
     recordingInterval = setInterval(() => {
       recordingTime.value++
@@ -320,7 +349,7 @@ async function toggleRecord() {
         toggleRecord()
       }
     }, 1000)
-    
+
   } catch (e) {
     statusMsg.value = 'Микрофон недоступен. Разрешите доступ к микрофону.'
     console.error('Microphone error:', e)
@@ -431,11 +460,12 @@ function cancelPhoto() {
   overflow: hidden;
 }
 
-.chat-header { 
-  background: linear-gradient(135deg, var(--accent) 0%, #8B5CF6 100%); 
-  color: white; 
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+.chat-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px 24px;
+  border-bottom: none;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
 }
 
 .header-content { 
@@ -444,25 +474,27 @@ function cancelPhoto() {
   gap: 12px; 
 }
 
-.avatar { 
-  width: 40px; 
-  height: 40px; 
-  background: rgba(255,255,255,0.2); 
-  border-radius: 50%; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  font-size: 20px;
+.avatar {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
   backdrop-filter: blur(10px);
+  border: 2px solid rgba(255,255,255,0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.messages { 
-  flex: 1; 
-  overflow-y: auto; 
-  padding: 20px; 
-  background: #F8FAFC;
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  background: linear-gradient(180deg, #f8f9ff 0%, #ffffff 100%);
   min-height: 300px;
-  max-height: 400px;
+  max-height: 450px;
 }
 
 .map-container {
@@ -499,15 +531,18 @@ function cancelPhoto() {
   padding: 4px;
 }
 
-.message-wrapper.assistant .message-bubble { 
-  background: white; 
+.message-wrapper.assistant .message-bubble {
+  background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%);
+  border: 1px solid #c7d2fe;
   border-bottom-left-radius: 4px;
+  color: #1e1b4b;
 }
 
-.message-wrapper.user .message-bubble { 
-  background: linear-gradient(135deg, var(--accent) 0%, #8B5CF6 100%); 
+.message-wrapper.user .message-bubble {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-bottom-right-radius: 4px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .message-text { 
@@ -527,27 +562,30 @@ function cancelPhoto() {
   object-fit: cover;
 }
 
-.input-area { 
-  background: white; 
-  padding: 16px 20px; 
-  border-top: 1px solid #E2E8F0;
+.input-area {
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9ff 100%);
+  padding: 20px 24px;
+  border-top: 1px solid #e0e7ff;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
 }
 
-.input-wrapper { 
-  display: flex; 
-  gap: 8px; 
+.input-wrapper {
+  display: flex;
+  gap: 8px;
   align-items: center;
-  background: #F8FAFC;
-  border-radius: 24px;
-  padding: 8px 12px;
-  border: 2px solid transparent;
-  transition: all 0.2s;
+  background: white;
+  border-radius: 28px;
+  padding: 10px 16px;
+  border: 2px solid #e0e7ff;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.08);
 }
 
 .input-wrapper:focus-within {
-  border-color: var(--accent);
+  border-color: #667eea;
   background: white;
-  box-shadow: 0 0 0 4px rgba(167,139,250,0.1);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
+  transform: translateY(-1px);
 }
 
 .chat-input { 
@@ -565,25 +603,25 @@ function cancelPhoto() {
   gap: 6px; 
 }
 
-.send-btn { 
-  width: 36px; 
-  height: 36px; 
-  border-radius: 50%; 
-  border: none; 
-  background: linear-gradient(135deg, var(--accent) 0%, #8B5CF6 100%); 
-  color: white; 
-  cursor: pointer; 
-  display: flex; 
-  align-items: center; 
+.send-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  font-size: 16px;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(167,139,250,0.3);
+  font-size: 18px;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-.send-btn:hover:not(:disabled) { 
-  transform: scale(1.05); 
-  box-shadow: 0 4px 12px rgba(167,139,250,0.4);
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
 }
 
 .send-btn:disabled { 
@@ -598,21 +636,24 @@ function cancelPhoto() {
   justify-content: center;
 }
 
-.action-btn { 
-  padding: 8px 16px; 
-  border-radius: 20px; 
-  border: 1px solid #E2E8F0; 
-  background: white; 
-  cursor: pointer; 
+.action-btn {
+  padding: 10px 18px;
+  border-radius: 24px;
+  border: 2px solid #e0e7ff;
+  background: white;
+  cursor: pointer;
   font-size: 13px;
-  transition: all 0.2s;
+  font-weight: 600;
+  transition: all 0.3s;
   font-family: inherit;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.action-btn:hover { 
-  background: #F8FAFC; 
-  border-color: var(--accent);
-  transform: translateY(-1px);
+.action-btn:hover {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
 }
 
 .voice-btn {
@@ -622,19 +663,22 @@ function cancelPhoto() {
 }
 
 .voice-icon {
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .recording-timer {
   font-weight: 700;
   font-family: monospace;
+  min-width: 30px;
+  text-align: center;
 }
 
-.action-btn.recording { 
-  background: #FEE2E2; 
-  border-color: #EF4444; 
-  color: #DC2626;
+.action-btn.recording {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-color: #ef4444;
+  color: #dc2626;
   animation: pulse 1.5s infinite;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 @keyframes pulse {
@@ -771,16 +815,16 @@ function cancelPhoto() {
   box-shadow: 0 6px 16px rgba(167,139,250,0.4);
 }
 
-.photo-btn {
-  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-  color: white;
-  border: none;
+.voice-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.photo-btn:hover {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+.photo-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .photo-icon {
@@ -788,15 +832,9 @@ function cancelPhoto() {
 }
 
 .map-btn {
-  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-  color: white;
-  border: none;
-}
-
-.map-btn:hover {
-  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .map-icon {

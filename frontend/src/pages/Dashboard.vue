@@ -81,7 +81,7 @@
       </DSCard>
     </div>
 
-    <MyComplaints v-if="!isAdmin" />
+          <ResidentHome v-if="!isAdmin" @openChat="openResidentChat" />
     
     <!-- Analytics Charts for Admin -->
     <div v-if="isAdmin" class="grid cols-2">
@@ -95,6 +95,7 @@
   </div>
   <ComplaintMapModal :open="mapModalOpen" :complaint="mapComplaint" @close="mapModalOpen=false" />
   <AdminChatModal :open="openAdminChat" :complaint="selectedComplaint" @close="closeAdminChat" />
+  <ChatModal v-if="!isAdmin" :open="openResidentChatModal" @close="openResidentChatModal=false" />
 </template>
 
 <script setup>
@@ -110,7 +111,9 @@ import { ref, onMounted, computed } from 'vue'
 import { auth } from '../store/auth'
 import ComplaintMapModal from '../components/admin/ComplaintMapModal.vue'
 import MyComplaints from '../components/resident/MyComplaints.vue'
+import ResidentHome from '../components/resident/ResidentHome.vue'
 import AdminChatModal from '../components/ui/AdminChatModal.vue'
+import ChatModal from '../components/ui/ChatModal.vue'
 
 const summary = ref({ byPriority: {}, byRoute: {}, total: 0, avgConfidence: 0 })
 const complaints = ref([])
@@ -120,10 +123,15 @@ const mapModalOpen = ref(false)
 const mapComplaint = ref(null)
 const openAdminChat = ref(false)
 const selectedComplaint = ref(null)
+const openResidentChatModal = ref(false)
+
 function openMap(c) { mapComplaint.value = c; mapModalOpen.value = true }
-function discussComplaint(c) { 
+function discussComplaint(c) {
   selectedComplaint.value = c
-  openAdminChat.value = true 
+  openAdminChat.value = true
+}
+function openResidentChat() {
+  openResidentChatModal.value = true
 }
 
 async function loadSummary() {
