@@ -76,3 +76,4 @@ watch(() => props.byActor, renderChart, { deep: true })
 canvas { height: 280px !important; }
 </style>
 
+

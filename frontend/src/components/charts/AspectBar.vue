@@ -77,3 +77,4 @@ watch(() => props.byAspect, renderChart, { deep: true })
 canvas { height: 300px !important; }
 </style>
 
+

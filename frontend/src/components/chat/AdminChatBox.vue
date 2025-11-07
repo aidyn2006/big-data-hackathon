@@ -30,7 +30,21 @@
           <div v-if="m.role === 'assistant' && m.data" class="ai-content">
             <AIResponseCard :data="m.data" />
           </div>
-          <div v-else class="message-text">{{ m.text }}</div>
+          <div v-else class="message-text">
+            {{ m.text }}
+            <span v-if="m.isTyping" class="typing-cursor">|</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Typing indicator -->
+      <div v-if="statusMsg" class="message-wrapper assistant">
+        <div class="message-bubble typing-indicator-bubble">
+          <div class="typing-dots">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -181,12 +195,20 @@ async function send() {
     await nextTick()
     scrollBottom()
     
-    // Animate typing
+    // Animate typing with variable speed (faster for spaces, slower for punctuation)
     let currentText = ''
     for (let i = 0; i < displayText.length; i++) {
       currentText += displayText[i]
       messages.value[msgIndex].text = currentText
-      await new Promise(resolve => setTimeout(resolve, 20)) // 20ms per character
+      
+      // Variable typing speed for more natural effect
+      const char = displayText[i]
+      let delay = 15 // Base speed: 15ms per character
+      if (char === ' ') delay = 5 // Fast for spaces
+      else if (['.', '!', '?', ','].includes(char)) delay = 200 // Pause at punctuation
+      else if (['\n'].includes(char)) delay = 100 // Pause at line breaks
+      
+      await new Promise(resolve => setTimeout(resolve, delay))
       scrollBottom()
     }
     messages.value[msgIndex].isTyping = false
@@ -221,8 +243,9 @@ function scrollBottom() {
 .chat-header {
   background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
   color: white;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding: 20px 24px;
+  border-bottom: none;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
 }
 
 .header-content {
@@ -232,24 +255,26 @@ function scrollBottom() {
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
-  background: rgba(255,255,255,0.2);
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1));
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 24px;
   backdrop-filter: blur(10px);
+  border: 2px solid rgba(255,255,255,0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
-  background: #F8FAFC;
+  padding: 24px;
+  background: linear-gradient(180deg, #f8f9ff 0%, #ffffff 100%);
   min-height: 300px;
-  max-height: 400px;
+  max-height: 450px;
 }
 
 .message-wrapper {
@@ -279,14 +304,17 @@ function scrollBottom() {
 }
 
 .message-wrapper.assistant .message-bubble {
-  background: white;
+  background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%);
+  border: 1px solid #c7d2fe;
   border-bottom-left-radius: 4px;
+  color: #1e1b4b;
 }
 
 .message-wrapper.user .message-bubble {
   background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
   color: white;
   border-bottom-right-radius: 4px;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
 .message-text { 
@@ -295,27 +323,83 @@ function scrollBottom() {
   white-space: pre-wrap;
 }
 
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: currentColor;
+  margin-left: 2px;
+  animation: blink 0.8s infinite;
+}
+
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.typing-indicator-bubble {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%) !important;
+  padding: 16px 20px !important;
+  border: 1px solid #c7d2fe;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8B5CF6;
+  animation: bounce 1.4s infinite ease-in-out;
+}
+
+.dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% { 
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% { 
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
 .input-area { 
-  background: white; 
-  padding: 16px 20px; 
-  border-top: 1px solid #E2E8F0;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9ff 100%);
+  padding: 20px 24px; 
+  border-top: 1px solid #e0e7ff;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
 }
 
 .input-wrapper {
   display: flex;
   gap: 8px;
   align-items: center;
-  background: #F8FAFC;
-  border-radius: 24px;
-  padding: 8px 12px;
-  border: 2px solid transparent;
-  transition: all 0.2s;
+  background: white;
+  border-radius: 28px;
+  padding: 10px 16px;
+  border: 2px solid #e0e7ff;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.08);
 }
 
 .input-wrapper:focus-within {
   border-color: #8B5CF6;
   background: white;
-  box-shadow: 0 0 0 4px rgba(139,92,246,0.1);
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15);
+  transform: translateY(-1px);
 }
 
 .chat-input {
@@ -334,8 +418,8 @@ function scrollBottom() {
 }
 
 .send-btn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
@@ -344,19 +428,20 @@ function scrollBottom() {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(139,92,246,0.3);
+  font-size: 18px;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
 .send-btn:hover:not(:disabled) {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(139,92,246,0.4);
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5);
 }
 
 .send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .complaint-card {

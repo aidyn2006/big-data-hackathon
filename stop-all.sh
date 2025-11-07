@@ -8,3 +8,4 @@ echo "✅ All services stopped"
 echo ""
 echo "💡 To remove database data: docker volume rm big-data-hackathon_db_data"
 
+
